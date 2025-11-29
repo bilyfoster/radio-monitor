@@ -205,7 +205,16 @@ def monitor_stream(
                 
         except Exception as e:
             consecutive_errors += 1
-            logger.error(f"Unexpected error: {e} (error {consecutive_errors}/{max_consecutive_errors})")
+            logger.error(f"Unexpected error occurred (error {consecutive_errors}/{max_consecutive_errors})")
+            logger.debug(f"Error details: {type(e).__name__}")
+            
+            if consecutive_errors >= max_consecutive_errors and not is_silent:
+                is_silent = True
+                send_uptime_kuma_notification(
+                    uptime_kuma_url,
+                    status="down",
+                    msg="Monitoring error - unable to process stream"
+                )
             
         # Small sleep to prevent tight looping
         time.sleep(0.1)
