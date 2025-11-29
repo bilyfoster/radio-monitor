@@ -70,7 +70,8 @@ def monitor_stream(
     silence_threshold_db: float = -60.0,
     silence_timeout_sec: int = 10,
     uptime_kuma_url: str = "",
-    check_interval_sec: float = 1.0
+    check_interval_sec: float = 1.0,
+    heartbeat_interval_sec: int = 60
 ) -> None:
     """
     Monitor an audio stream for silence and send alerts when detected.
@@ -81,6 +82,7 @@ def monitor_stream(
         silence_timeout_sec: Duration in seconds of silence before triggering an alert
         uptime_kuma_url: URL for Uptime Kuma push notifications
         check_interval_sec: Interval between audio level checks
+        heartbeat_interval_sec: Interval between heartbeat notifications (default 60 seconds)
     """
     if not validate_url(stream_url):
         logger.error(f"Invalid stream URL: {stream_url}")
@@ -89,10 +91,12 @@ def monitor_stream(
     logger.info(f"Starting stream monitor for: {stream_url}")
     logger.info(f"Silence threshold: {silence_threshold_db} dB")
     logger.info(f"Silence timeout: {silence_timeout_sec} seconds")
+    logger.info(f"Heartbeat interval: {heartbeat_interval_sec} seconds")
     
     silence_start_time = None
     is_silent = False
     alert_sent = False
+    last_heartbeat_time = 0
     
     # FFmpeg command to analyze audio levels
     # Using volumedetect filter to get mean and max volume
@@ -161,8 +165,11 @@ def monitor_stream(
                     silence_start_time = None
                     alert_sent = False
                     
-                    # Send heartbeat when audio is playing
-                    send_notification(uptime_kuma_url, status="up", msg="Stream playing normally")
+                    # Send heartbeat when audio is playing (throttled)
+                    current_time = time.time()
+                    if current_time - last_heartbeat_time >= heartbeat_interval_sec:
+                        send_notification(uptime_kuma_url, status="up", msg="Stream playing normally")
+                        last_heartbeat_time = current_time
             else:
                 logger.warning("Could not parse audio levels from FFmpeg output")
                 
@@ -236,6 +243,13 @@ def main():
     )
     
     parser.add_argument(
+        "--heartbeat-interval",
+        type=int,
+        default=int(os.environ.get("HEARTBEAT_INTERVAL", "60")),
+        help="Interval in seconds between heartbeat notifications (or set HEARTBEAT_INTERVAL env var)"
+    )
+    
+    parser.add_argument(
         "--debug",
         action="store_true",
         default=os.environ.get("DEBUG", "").lower() in ("true", "1", "yes"),
@@ -264,13 +278,18 @@ def main():
         logger.error("Check interval must be at least 1 second")
         sys.exit(1)
     
+    if args.heartbeat_interval < 1:
+        logger.error("Heartbeat interval must be at least 1 second")
+        sys.exit(1)
+    
     try:
         monitor_stream(
             stream_url=args.stream_url,
             silence_threshold_db=args.silence_threshold,
             silence_timeout_sec=args.silence_timeout,
             uptime_kuma_url=args.uptime_kuma_url,
-            check_interval_sec=args.check_interval
+            check_interval_sec=args.check_interval,
+            heartbeat_interval_sec=args.heartbeat_interval
         )
     except KeyboardInterrupt:
         logger.info("Monitoring stopped by user")

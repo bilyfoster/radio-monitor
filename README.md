@@ -54,6 +54,7 @@ docker logs -f silent-sense
 | `SILENCE_TIMEOUT` | Seconds of silence before alerting | `10` | No |
 | `UPTIME_KUMA_URL` | Uptime Kuma push URL for notifications | - | No |
 | `CHECK_INTERVAL` | Interval in seconds between audio checks | `5` | No |
+| `HEARTBEAT_INTERVAL` | Interval in seconds between heartbeat notifications | `60` | No |
 | `DEBUG` | Enable debug logging (`true`/`false`) | `false` | No |
 
 ### Command Line Arguments
@@ -77,6 +78,7 @@ python silent_sense.py \
 | `--silence-timeout` | Seconds of silence before alerting |
 | `--uptime-kuma-url` | Uptime Kuma push URL |
 | `--check-interval` | Interval between checks in seconds |
+| `--heartbeat-interval` | Interval between heartbeat notifications in seconds |
 | `--debug` | Enable debug logging |
 
 ## Running Locally (Without Docker)
